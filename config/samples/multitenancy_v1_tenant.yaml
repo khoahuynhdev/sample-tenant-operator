@@ -6,4 +6,12 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: tenant-sample
 spec:
-  # TODO(user): Add fields here
+  adminEmail: root@anz.com
+  adminGroups:
+    - SRE
+    - DRE
+  userGroups:
+    - super-user
+  namespaces:
+    - sample-ns-1
+    - sample-ns-2
