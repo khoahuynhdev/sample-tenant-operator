@@ -4,14 +4,14 @@ metadata:
   labels:
     app.kubernetes.io/name: sample-tenant-operator
     app.kubernetes.io/managed-by: kustomize
-  name: tenant-sample
+  name: beta-tenant
 spec:
-  adminEmail: root@anz.com
+  adminEmail: root@admin.com
   adminGroups:
     - SRE
     - DRE
   userGroups:
     - super-user
   namespaces:
-    - sample-ns-1
-    - sample-ns-2
+    - ns-1
+    - ns-2
