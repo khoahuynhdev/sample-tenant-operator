@@ -19,12 +19,16 @@ package controller
 import (
 	"context"
 
+	multitenancyv1 "codereliant.io/tenant/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
 
-	multitenancyv1 "codereliant.io/tenant/api/v1"
+const (
+	finalizerName = "tenant.codereliant.io/finalizer"
 )
 
 // TenantReconciler reconciles a Tenant object
@@ -47,10 +51,63 @@ type TenantReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	tenant := &multitenancyv1.Tenant{}
 
+	log.Info("Reconciling tenant...")
+
+	// fetch the tenant instance
+	if err := r.Get(ctx, req.NamespacedName, tenant); err != nil {
+		// tenant object not found, might have been deleted
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if tenant.DeletionTimestamp != nil {
+		// check if finalizer is present
+		if controllerutil.ContainsFinalizer(tenant, finalizerName) {
+			// cleanup resource
+			log.Info("finalizer found, cleaning up resource")
+			if err := r.deleteExternalResources(ctx, tenant); err != nil {
+				log.Error(err, "Failed to cleanup resource")
+				return ctrl.Result{}, err
+			}
+
+			// remove the finalizer from the tenant object once the cleanup succeeded
+			// this will free up tenant resource to be deleted
+			controllerutil.RemoveFinalizer(tenant, finalizerName)
+			if err := r.Update(ctx, tenant); err != nil {
+				log.Error(err, "unable to update tenant")
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		for _, ns := range tenant.Spec.Namespaces {
+			log.Info("Ensure namespace", "namespace", ns)
+			if err := r.EnsureNamespace(ctx, tenant, ns); err != nil {
+				log.Error(err, "unable to ensure namespace", "namespace", ns)
+				return ctrl.Result{}, err
+			}
+
+			log.Info("Ensure Admin RoleBinding", "namespace", ns)
+			if err := r.EnsureRoleBinding(ctx, ns, tenant.Spec.AdminGroups, "admin"); err != nil {
+				log.Error(err, "unable to ensure Admin RoleBinding", "namespace", ns)
+				return ctrl.Result{}, err
+			}
+
+			if err := r.EnsureRoleBinding(ctx, ns, tenant.Spec.UserGroups, "edit"); err != nil {
+				log.Error(err, "unable to ensure User RoleBinding", "namespace", ns)
+				return ctrl.Result{}, err
+			}
+		}
+		// update the Tenant status with current state
+		tenant.Status.NamespaceCount = len(tenant.Spec.Namespaces)
+		tenant.Status.AdminEmail = tenant.Spec.AdminEmail
+		if err := r.Status().Update(ctx, tenant); err != nil {
+			log.Error(err, "unable to update tenant status")
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
 }
 

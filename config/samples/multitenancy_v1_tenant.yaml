@@ -4,6 +4,16 @@ metadata:
   labels:
     app.kubernetes.io/name: sample-tenant-operator
     app.kubernetes.io/managed-by: kustomize
-  name: tenant-sample
+  name: beta-tenant
+  finalizers:
+    - tenant.codereliant.io/finalizer
 spec:
-  # TODO(user): Add fields here
+  adminEmail: root@admin.com
+  adminGroups:
+    - SRE
+    - DRE
+  userGroups:
+    - super-user
+  namespaces:
+    - ns-1
+    - ns-2

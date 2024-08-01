@@ -28,19 +28,25 @@ type TenantSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Tenant. Edit tenant_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Namespaces  []string `json:"namespaces,omitempty"`
+	AdminEmail  string   `json:"adminEmail,omitempty"`
+	AdminGroups []string `json:"adminGroups,omitempty"`
+	UserGroups  []string `json:"userGroups,omitempty"`
 }
 
 // TenantStatus defines the observed state of Tenant
 type TenantStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	NamespaceCount int    `json:"namespaceCount"`
+	AdminEmail     string `json:"adminEmail"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-
+// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="Email",type="string",JSONPath=".status.adminEmail",description="AdminEmail"
+// +kubebuilder:printcolumn:name="NamespaceCount",type="integer",JSONPath=".status.namespaceCount",description="NamespaceCount"
 // Tenant is the Schema for the tenants API
 type Tenant struct {
 	metav1.TypeMeta   `json:",inline"`
